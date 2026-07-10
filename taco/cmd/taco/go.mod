@@ -7,7 +7,7 @@ require (
 	github.com/diggerhq/digger/opentaco/pkg/sdk v0.0.0
 	github.com/google/uuid v1.6.0
 	github.com/mr-tron/base58 v1.2.0
-	github.com/spf13/cobra v1.8.1
+	github.com/spf13/cobra v1.9.1
 )
 
 require (
@@ -30,7 +30,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.38.0 // indirect
 	github.com/aws/smithy-go v1.22.5 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/pflag v1.0.6 // indirect
 )
 
 replace github.com/diggerhq/digger/opentaco/pkg/sdk => ../../pkg/sdk
