@@ -534,7 +534,9 @@ runs:
         echo "🔧 Downloading Digger CLI..."
         echo "Runner OS: ${{ runner.os }}, Arch: ${{ runner.arch }}, Digger Version: ${DIGGER_VERSION}"
 
-        ACTION_REPOSITORY="${{ github.action_repository }}"
+        # github.action_repository is not reliably populated from within a
+        # composite action's own `run:` steps, so hardcode this fork's repo.
+        ACTION_REPOSITORY="appchoose/digger"
 
         if [[ ${{ inputs.ee }} == "true" ]]; then
           if [[ ${{ inputs.fips }} == "true" ]]; then
