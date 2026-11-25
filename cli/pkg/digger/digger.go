@@ -404,16 +404,19 @@ func run(command string, job orchestrator.Job, policyChecker policy.Checker, org
 
 			// checking policies (plan, access)
 			var planPolicyViolations []string
+			// Retrieved once and reused by the apply policy check below: every retrieval
+			// downloads the stored plan, then runs `init` and `show -json`.
+			var terraformPlanJson string
 
 			if os.Getenv("PLAN_UPLOAD_DESTINATION") != "" {
-				terraformPlanJsonStr, err := executor.RetrievePlanJson()
+				terraformPlanJson, err = executor.RetrievePlanJson()
 				if err != nil {
 					msg := fmt.Sprintf("Failed to retrieve stored plan. %v", err)
 					slog.Error("Failed to retrieve stored plan.", "error", err)
 					return nil, msg, fmt.Errorf("%s", msg)
 				}
 
-				_, violations, err := policyChecker.CheckPlanPolicy(SCMrepository, SCMOrganisation, job.ProjectName, job.ProjectDir, requestedBy, teams, approvals, approvalTeams, terraformPlanJsonStr)
+				_, violations, err := policyChecker.CheckPlanPolicy(SCMrepository, SCMOrganisation, job.ProjectName, job.ProjectDir, requestedBy, teams, approvals, approvalTeams, terraformPlanJson)
 				if err != nil {
 					msg := fmt.Sprintf("Failed to check plan policy. %v", err)
 					slog.Error("Failed to check plan policy.", "error", err)
@@ -438,22 +441,8 @@ func run(command string, job orchestrator.Job, policyChecker policy.Checker, org
 				return nil, msg, errors.New(msg)
 			}
 
-			// Check apply policy before apply
-			// Try to retrieve the terraform plan JSON if plan storage is configured
-			var terraformPlanJson string
-			if os.Getenv("PLAN_UPLOAD_DESTINATION") != "" {
-				slog.Debug("Plan storage configured, attempting to retrieve plan for apply policy check")
-				retrievedPlanJson, err := executor.RetrievePlanJson()
-				if err != nil {
-					slog.Warn("Failed to retrieve plan JSON for apply policy check, proceeding without plan data", "error", err)
-				} else {
-					terraformPlanJson = retrievedPlanJson
-					slog.Debug("Successfully retrieved plan JSON for apply policy check", "planLength", len(terraformPlanJson))
-				}
-			} else {
-				slog.Debug("Plan storage not configured, apply policy will not have terraform plan data")
-			}
-
+			// Check apply policy before apply, with the plan JSON retrieved above
+			// (empty when plan storage is not configured).
 			slog.Debug("Calling CheckApplyPolicy",
 				"organisation", SCMOrganisation,
 				"repository", SCMrepository,
