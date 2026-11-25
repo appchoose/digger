@@ -301,3 +301,47 @@ func TestDiggerPlanPolicyChecker_Check(t *testing.T) {
 		})
 	}
 }
+
+type noPlanOrApplyPolicyProvider struct {
+	DiggerDefaultPolicyProvider
+}
+
+func (s *noPlanOrApplyPolicyProvider) GetPlanPolicy(organisation string, repository string, projectname string, projectDir string) (string, error) {
+	return "", nil
+}
+
+func (s *noPlanOrApplyPolicyProvider) GetApplyPolicy(organisation string, repository string, projectname string, projectDir string) (string, error) {
+	return "", nil
+}
+
+type applyPolicyOnlyProvider struct {
+	noPlanOrApplyPolicyProvider
+}
+
+func (s *applyPolicyOnlyProvider) GetApplyPolicy(organisation string, repository string, projectname string, projectDir string) (string, error) {
+	return "package digger\n", nil
+}
+
+func TestNeedsPlanJson(t *testing.T) {
+	tests := []struct {
+		name    string
+		checker PlanJsonUser
+		want    bool
+	}{
+		{"no-op checker", NoOpPolicyChecker{}, false},
+		{"no plan or apply policy", DiggerPolicyChecker{PolicyProvider: &noPlanOrApplyPolicyProvider{}}, false},
+		{"plan policy", DiggerPolicyChecker{PolicyProvider: &DiggerDefaultPolicyProvider{}}, true},
+		{"apply policy only", DiggerPolicyChecker{PolicyProvider: &applyPolicyOnlyProvider{}}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.checker.NeedsPlanJson("org", "repo", "project", "dir")
+			if err != nil {
+				t.Fatalf("NeedsPlanJson() error = %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("NeedsPlanJson() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

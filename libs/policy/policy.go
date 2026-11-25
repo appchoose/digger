@@ -46,6 +46,10 @@ func (p NoOpPolicyChecker) CheckApplyPolicy(SCMOrganisation string, SCMrepositor
 	return true, nil, nil
 }
 
+func (p NoOpPolicyChecker) NeedsPlanJson(SCMOrganisation string, SCMrepository string, projectName string, projectDir string) (bool, error) {
+	return false, nil
+}
+
 func getAccessPolicyForOrganisation(p *DiggerHttpPolicyProvider) (string, *http.Response, error) {
 	organisation := p.DiggerOrganisation
 	u, err := url.Parse(p.DiggerHost)
@@ -462,6 +466,23 @@ func (p DiggerHttpPolicyProvider) GetOrganisation() string {
 
 type DiggerPolicyChecker struct {
 	PolicyProvider Provider
+}
+
+// NeedsPlanJson reports whether the project has a plan policy or an apply policy: they
+// are the only readers of the plan JSON.
+func (p DiggerPolicyChecker) NeedsPlanJson(SCMOrganisation string, SCMrepository string, projectName string, projectDir string) (bool, error) {
+	planPolicy, err := p.PolicyProvider.GetPlanPolicy(SCMOrganisation, SCMrepository, projectName, projectDir)
+	if err != nil {
+		return false, fmt.Errorf("failed get plan policy: %v", err)
+	}
+	if planPolicy != "" {
+		return true, nil
+	}
+	applyPolicy, err := p.PolicyProvider.GetApplyPolicy(SCMOrganisation, SCMrepository, projectName, projectDir)
+	if err != nil {
+		return false, fmt.Errorf("failed get apply policy: %v", err)
+	}
+	return applyPolicy != "", nil
 }
 
 // TODO refactor to use AccessPolicyContext - too many arguments
