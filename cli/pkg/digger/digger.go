@@ -408,7 +408,17 @@ func run(command string, job orchestrator.Job, policyChecker policy.Checker, org
 			// downloads the stored plan, then runs `init` and `show -json`.
 			var terraformPlanJson string
 
-			if os.Getenv("PLAN_UPLOAD_DESTINATION") != "" {
+			needsPlanJson := true
+			if planJsonUser, ok := policyChecker.(policy.PlanJsonUser); ok && os.Getenv("PLAN_UPLOAD_DESTINATION") != "" {
+				needsPlanJson, err = planJsonUser.NeedsPlanJson(SCMOrganisation, SCMrepository, job.ProjectName, job.ProjectDir)
+				if err != nil {
+					msg := fmt.Sprintf("Failed to check plan policy. %v", err)
+					slog.Error("Failed to check plan policy.", "error", err)
+					return nil, msg, fmt.Errorf("%s", msg)
+				}
+			}
+
+			if os.Getenv("PLAN_UPLOAD_DESTINATION") != "" && needsPlanJson {
 				terraformPlanJson, err = executor.RetrievePlanJson()
 				if err != nil {
 					msg := fmt.Sprintf("Failed to retrieve stored plan. %v", err)
@@ -423,6 +433,20 @@ func run(command string, job orchestrator.Job, policyChecker policy.Checker, org
 					return nil, msg, fmt.Errorf("%s", msg)
 				}
 				planPolicyViolations = violations
+			} else if os.Getenv("PLAN_UPLOAD_DESTINATION") != "" {
+				// No policy reads the plan, so it is not loaded here. Still refuse to apply
+				// without a stored plan, as RetrievePlanJson did.
+				storedPlanExists, err := planStorage.PlanExists(planPathProvider.ArtifactName(), planPathProvider.StoredPlanFilePath())
+				if err == nil && !storedPlanExists {
+					err = fmt.Errorf("stored plan does not exist")
+				}
+				if err != nil {
+					msg := fmt.Sprintf("Failed to retrieve stored plan. %v", err)
+					slog.Error("Failed to retrieve stored plan.", "error", err)
+					return nil, msg, fmt.Errorf("%s", msg)
+				}
+				slog.Info("No plan or apply policy found, skipping plan JSON retrieval")
+				planPolicyViolations = []string{}
 			} else {
 				slog.Info("Skipping plan policy checks because plan storage is not configured.")
 				planPolicyViolations = []string{}

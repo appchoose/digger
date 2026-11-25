@@ -18,6 +18,14 @@ type Checker interface {
 	CheckApplyPolicy(SCMOrganisation string, SCMrepository string, projectName string, projectDir string, command string, prNumber *int, requestedBy string, teams []string, approvals []string, approvalTeams []string, planPolicyViolations []string, planOutput string) (bool, []string, error)
 }
 
+// PlanJsonUser is implemented by checkers that can tell, before the stored plan is
+// loaded, whether a project's plan or apply policy will read it. Loading it costs a plan
+// download, a `terraform init` and a `terraform show -json`. Checkers that do not
+// implement it are assumed to need the plan.
+type PlanJsonUser interface {
+	NeedsPlanJson(SCMOrganisation string, SCMrepository string, projectName string, projectDir string) (bool, error)
+}
+
 type PolicyCheckerProvider interface {
 	Get(hostname string, organisationName string, authToken string) (Checker, error)
 }
